@@ -130,6 +130,22 @@ function normalizedArtistKey(artist: string): string {
 }
 
 export class MusicCatalogStubService {
+  private shouldUseStubFallback(): boolean {
+    return process.env.NODE_ENV !== "production";
+  }
+
+  private resolveCatalogOrFallback(dbCatalog: CatalogEntry[] | null): CatalogEntry[] {
+    if (dbCatalog && dbCatalog.length > 0) return dbCatalog;
+    if (this.shouldUseStubFallback()) return CATALOG;
+    return [];
+  }
+
+  private resolveCatalogOrFallbackWithDefault(dbCatalog: CatalogEntry[] | null): CatalogEntry[] {
+    if (dbCatalog && dbCatalog.length > 0) return dbCatalog;
+    if (this.shouldUseStubFallback()) return CATALOG.map((song) => ({ ...song, catalog: "default" }));
+    return [];
+  }
+
   private isBlockedAlbumMeta(albumName: string | null | undefined, albumType: string | null | undefined): boolean {
     const albumTypeValue = (albumType || "").toLowerCase();
     const albumNameValue = (albumName || "").toLowerCase();
@@ -278,7 +294,7 @@ export class MusicCatalogStubService {
         tags: tagsBySongId.get(row.id) || [],
       }));
     } catch (error) {
-      console.warn("Music catalog DB lookup failed, using built-in stub catalog:", error);
+      console.warn("Music catalog DB lookup failed:", error);
       return null;
     }
   }
@@ -291,7 +307,7 @@ export class MusicCatalogStubService {
       ? { min: Math.min(customFrom, customTo), max: Math.max(customFrom, customTo) }
       : presetRange;
     const dbCatalog = await this.loadCatalogFromDb();
-    const catalog = dbCatalog && dbCatalog.length > 0 ? dbCatalog : CATALOG;
+    const catalog = this.resolveCatalogOrFallback(dbCatalog);
     const selectedCatalog = filters.catalog && filters.catalog !== "all" ? filters.catalog : null;
     const catalogScoped = selectedCatalog
       ? catalog.filter((song) => (song.catalog || "default") === selectedCatalog)
@@ -366,7 +382,7 @@ export class MusicCatalogStubService {
       : presetRange;
 
     const dbCatalog = await this.loadCatalogFromDb();
-    const catalog = dbCatalog && dbCatalog.length > 0 ? dbCatalog : CATALOG;
+    const catalog = this.resolveCatalogOrFallback(dbCatalog);
     const selectedCatalog = filters.catalog && filters.catalog !== "all" ? filters.catalog : null;
     const catalogScoped = selectedCatalog
       ? catalog.filter((song) => (song.catalog || "default") === selectedCatalog)
@@ -395,7 +411,9 @@ export class MusicCatalogStubService {
     const eligibleCount = unique.size;
 
     let warning: string | undefined;
-    if (filters.knownHitsOnly && filters.era === "2020s" && eligibleCount === 0) {
+    if (catalog.length === 0) {
+      warning = "Katalogen är tillfälligt otillgänglig. Prova igen om några sekunder.";
+    } else if (filters.knownHitsOnly && filters.era === "2020s" && eligibleCount === 0) {
       warning = "Inga välkända låtar hittades för 2020-talet med nuvarande regler.";
     } else if (eligibleCount < 15) {
       warning = "För få låtar för en stabil match. Välj bredare filter.";
@@ -410,7 +428,7 @@ export class MusicCatalogStubService {
 
   async getCatalogOptions(): Promise<Array<{ id: string; count: number; minYear: number | null; maxYear: number | null }>> {
     const dbCatalog = await this.loadCatalogFromDb();
-    const catalog = dbCatalog && dbCatalog.length > 0 ? dbCatalog : CATALOG.map((song) => ({ ...song, catalog: "default" }));
+    const catalog = this.resolveCatalogOrFallbackWithDefault(dbCatalog);
     const grouped = new Map<string, { count: number; minYear: number | null; maxYear: number | null }>();
 
     for (const song of catalog) {

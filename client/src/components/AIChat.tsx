@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BottomBackButton from "@/components/BottomBackButton";
@@ -30,6 +30,7 @@ export default function AIChat({ onPreferencesConfirmed, onBack }: AIChatProps) 
   const [availability, setAvailability] = useState<{ eligibleCount: number; warning?: string } | null>(null);
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [catalogs, setCatalogs] = useState<Array<{ id: string; count: number; minYear: number | null; maxYear: number | null }>>([]);
+  const availabilityRequestSeq = useRef(0);
   const [filters, setFilters] = useState<MusicFilters>({
     mode: "filters",
     catalog: "all",
@@ -68,31 +69,36 @@ export default function AIChat({ onPreferencesConfirmed, onBack }: AIChatProps) 
   }, [isConfirming]);
 
   useEffect(() => {
-    let active = true;
+    const requestId = ++availabilityRequestSeq.current;
     const timer = setTimeout(async () => {
       setIsCheckingAvailability(true);
+      setAvailability(null);
       try {
         const response = await fetch("/api/catalog/availability", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(filters)
         });
-        if (!response.ok) return;
+        if (!response.ok) {
+          if (requestId === availabilityRequestSeq.current) {
+            setAvailability(null);
+          }
+          return;
+        }
         const data = await response.json();
-        if (!active) return;
+        if (requestId !== availabilityRequestSeq.current) return;
         setAvailability({
           eligibleCount: Number(data.eligibleCount || 0),
           warning: data.warning || undefined
         });
       } catch {
-        if (active) setAvailability(null);
+        if (requestId === availabilityRequestSeq.current) setAvailability(null);
       } finally {
-        if (active) setIsCheckingAvailability(false);
+        if (requestId === availabilityRequestSeq.current) setIsCheckingAvailability(false);
       }
     }, 220);
 
     return () => {
-      active = false;
       clearTimeout(timer);
     };
   }, [filters]);
