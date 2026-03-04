@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: hitster-app
+    runtime: node
+    plan: starter
+    region: frankfurt
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    autoDeploy: true
+    healthCheckPath: /api/spotify/status
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: DATABASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: SPOTIFY_CLIENT_ID
+        sync: false
+      - key: SPOTIFY_CLIENT_SECRET
+        sync: false
+      - key: SPOTIFY_REDIRECT_URI
+        sync: false
+      - key: MIN_DEFAULT_POPULARITY
+        value: "0"
+      - key: KNOWN_HIT_POPULARITY
+        value: "70"

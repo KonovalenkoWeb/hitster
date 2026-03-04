@@ -1,0 +1,104 @@
+Original prompt: Kan man göra så att man inte behöver klicka på "Starta musik" när man spelar online utan att man måste vara connectad till spotify innan spelet börjar? Så om man joinar en online match så måste man connecta först innan man kan gå med i spelet? Man måste alltså vara kopplad till spotify för att få gå med i spelet och på så sätt så behövs inte "starta musik"-knappen
+
+- Enforced Spotify gate before online join/reconnect in PlayerPage.
+- Enforced Spotify gate before online host can create/start a game in OnlineHostPage.
+- Removed manual "Starta musik" button from both PlayerPage and OnlineHostPage.
+- Music remains auto-play on round start via existing Spotify effect.
+- Verified with `npm run check` (TypeScript passes).
+
+TODO
+- Manual browser validation for full flow:
+  1) Join online without Spotify -> blocked + connect CTA.
+  2) Connect Spotify -> join works.
+  3) Host without Spotify -> blocked screen.
+  4) After game starts, no "Starta musik" button and playback auto-starts.
+- Added Spotify 'Logga ut' button on home/start page only (`/api/spotify/disconnect`), with success/error toasts.
+- Added online warning on home page: same Spotify account across multiple devices can interrupt playback.
+- Removed floating mute/play music button from MasterPage setup and lobby views.
+- Verified with `npm run check`.
+- Improved Spotify mobile diagnostics in `useSpotifyPlayer`:
+  - Added Spotify SDK error listeners (`initialization_error`, `authentication_error`, `account_error`, `playback_error`).
+  - Added `playbackError` state surfaced to UI.
+  - Added mobile unlock attempt via `player.activateElement()` on first touch/click/keydown.
+  - Added stronger HTTP response checks in `playTrack`.
+- Added visible playback status badge in online play views:
+  - `PlayerPage`: shows status states (playing/trying/error/not-ready).
+  - `OnlineHostPage`: same status indicator.
+- Verified with `npm run check`.
+- Added pause/lobby music to online mode.
+  - `OnlineHostPage`: plays in `setup`, `lobby`, and `reveal`; stops in `playing`/exit/new game.
+  - `PlayerPage`: plays in `join`, `reconnect`, `lobby`, and `reveal`; stops when actual round playback starts and on exit/new game.
+- Verified with `npm run check`.
+- Local mode no longer requires Spotify from Home screen (`Start Local` always enabled).
+- Master local setup no longer blocks on Spotify; now shows optional warning/banner and connect CTA.
+- Online invite flow now clearly exposes full join URL (`/join/{code}`) in lobby with copy button.
+- Verified with `npm run check`.
+- Added explicit game mode support (`local` / `online`) to game state and createGame flow.
+  - `MasterPage` creates local games.
+  - `OnlineHostPage` creates online games.
+- Added `/api/games/:code/meta` endpoint so player join flow can detect game mode by code.
+- Updated `PlayerPage` join/reconnect/profile QR flow:
+  - Spotify required only when joining/reconnecting ONLINE games.
+  - LOCAL game joins no longer require Spotify.
+  - Join page now auto-detects code mode and displays mode-specific hint text.
+- Updated playback behavior so tracks are not paused during reveal phase.
+  - Removed online lobby/pause music during reveal.
+  - Track playback now pauses only in setup/lobby/finished contexts.
+- Verified with `npm run check`.
+- Music settings updated:
+  - Removed `Energi`, `Språk`, and `Strict mode` from UI + backend filters.
+  - Added `knownHitsOnly` checkbox (`Endast välkända låtar`).
+- Catalog filtering updated:
+  - Added blocking for bedtime stories / meditation / ambient / elevator / focus/study/white-noise patterns in both catalog and Spotify search filtering.
+  - `knownHitsOnly=true` now prioritizes curated known-hit catalog first, then falls back to normal pool if needed.
+- UI cleanup:
+  - Added `GameHamburgerMenu` with actions/status (`Avsluta spelet`, `Bjud in spelare`, `Connect Spotify`, Spotify status).
+  - Integrated menu in `PlayerPage` and `OnlineHostPage` and removed top action button clutter.
+  - Removed BeatBrawl logo visibility globally via CSS selector.
+- Mobile Safari/Chrome viewport fix:
+  - Added global safe-area + `100dvh`/`-webkit-fill-available` handling for `.min-h-screen`.
+- Playback fix:
+  - Added per-page/per-control `lastPlayedTrackIdRef` logic so track switches when round song changes (prevents same song repeating across rounds).
+  - Kept reveal-phase playback continuous (no lobby music between questions).
+- Verification:
+  - `npm run check` passed.
+  - Playwright skill script attempted but failed locally because `playwright` package is not installed in environment.
+- User approved next-step automated validation.
+- Installed Playwright as dev dependency and Chromium browser binaries.
+- Ran skill Playwright client against `http://localhost:5050`; generated screenshot artifact:
+  - `output/web-game/shot-0.png`
+- No `errors-*.json` was produced by the client run (no captured console/page errors in that run).
+- UI fixes for latest feedback:
+  - Timeline card layout reworked to prevent desktop clipping of title/artist.
+  - Placeholder and song cards now share consistent width/height envelope.
+  - Added `BottomBackButton` component and integrated in non-game/non-home flows:
+    - `ProfileSetup`, `AIChat`, `PlayerPage` join/reconnect/lobby, `OnlineHostPage` connect/setup/lobby/create states, and `QRCodeDisplay`.
+  - Mobile Spotify CTA text shortened to `Connect Spotify` and made wrapping-safe.
+  - Stabilized hamburger menu trigger/panel positioning (`GameHamburgerMenu`) to avoid jump/shift when opening.
+- Playback synchronization:
+  - Added `playbackStartAtMs` to game state (shared/client types + server state).
+  - Server now sets per-round playback lead time (~1.8s) in `Game.nextRound()`.
+  - Clients (`PlayerPage`, `OnlineHostPage`, `GameControl`) now schedule playback to server timestamp with timeout cleanup.
+- Catalog/data quality hardening:
+  - Extended song schema with `albumName`, `albumType`, `popularity`, `isKnownHit`.
+  - Seed script now stores these fields and marks known hits via popularity threshold (`KNOWN_HIT_POPULARITY`, default 70).
+  - Tightened filtering to reject compilations/samplers/party/hits collections/remix/remaster-style albums and non-original versions.
+  - `musicCatalogStub` now filters DB rows using album metadata and uses DB `isKnownHit` for `knownHitsOnly` mode.
+  - Spotify enrichment filtering (`server/spotify.ts`) aligned with stricter compilation/version blocking rules.
+- Validation:
+  - `npm run check` passed.
+- Environment blockers in this sandbox:
+  - `npm run db:push` failed here due DNS/network restriction to Neon host (`ENOTFOUND ep-late-smoke-...neon.tech`).
+  - Playwright run failed in sandbox due browser launch permission (`mach_port_rendezvous` permission denied).
+- TODO for user machine:
+  - Run `npm run db:push`.
+  - Run `npm run seed:songs:reset` then `npm run seed:songs` to rebuild library with strict filters + known-hit metadata.
+- Added playlist-based seed flow:
+  - New script `server/scripts/seedSongsFromPlaylist.ts`
+  - New npm script `seed:songs:playlist`
+  - Accepts `--playlist=<url_or_id>` (defaults to user's provided playlist URL).
+  - Fetches full playlist tracks via Spotify API pagination.
+  - Attempts to correct year for compilation-like entries by searching canonical track and preferring earliest non-compilation clean match.
+  - Applies strict filtering (no compilation/remix/remaster/karaoke/sleep/etc), popularity thresholds, and sets `isKnownHit`.
+  - Infers coarse themes from first-artist genres and links to theme table.
+- Enforced game-level dedupe safety in `Game.setSongs()` so same song cannot appear twice in one game.

@@ -1,0 +1,69 @@
+Game created: 9XE0OZ by JPAecMTeaDyB8nSHAAAB
+Spotify: Access token obtained
+Spotify search failed: WebapiRegularError: An error occurred while communicating with Spotify's Web API.
+Details: No search query.
+    at _toError (/home/runner/workspace/node_modules/spotify-web-api-node/src/http-manager.js:39:12)
+    at /home/runner/workspace/node_modules/spotify-web-api-node/src/http-manager.js:71:25
+    at callback (/home/runner/workspace/node_modules/superagent/src/node/index.js:902:3)
+    at <anonymous> (/home/runner/workspace/node_modules/superagent/src/node/index.js:1130:18)
+    at IncomingMessage.<anonymous> (/home/runner/workspace/node_modules/superagent/src/node/parsers/json.js:19:7)
+    at Stream.emit (node:events:524:28)
+    at Unzip.<anonymous> (/home/runner/workspace/node_modules/superagent/src/node/unzip.js:54:12)
+    at Unzip.emit (node:events:524:28)
+    at endReadableNT (node:internal/streams/readable:1698:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  body: { error: { status: 400, message: 'No search query' } },
+  headers: {
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'private, max-age=0',
+    'access-control-allow-origin': '*',
+    'access-control-allow-headers': 'Accept, App-Platform, Authorization, Content-Type, Origin, Retry-After, Spotify-App-Version, X-Cloud-Trace-Context, client-token, content-access-token',
+    'access-control-allow-methods': 'GET, POST, OPTIONS, PUT, DELETE, PATCH',
+    'access-control-allow-credentials': 'true',
+    'access-control-max-age': '604800',
+    'content-encoding': 'gzip',
+    'strict-transport-security': 'max-age=31536000',
+    'x-content-type-options': 'nosniff',
+    'alt-svc': 'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000, h3=":443"; ma=2592000,h3-29=":443"; ma=2592000',
+    date: 'Sat, 08 Nov 2025 21:08:39 GMT',
+    server: 'envoy',
+    via: 'HTTP/2 edgeproxy, 1.1 google',
+    connection: 'close',
+    'transfer-encoding': 'chunked'
+  },
+  statusCode: 400
+}
+Error confirming preferences: Error: Failed to search songs on Spotify
+    at SpotifyService.searchSongs (/home/runner/workspace/server/spotify.ts:65:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Socket.<anonymous> (/home/runner/workspace/server/socketHandlers.ts:90:21)
+Spotify: Found 0 songs for query "rock music"
+Not enough songs from search, trying recommendations...
+Spotify recommendations failed: WebapiError: [object Object]
+    at _toError (/home/runner/workspace/node_modules/spotify-web-api-node/src/http-manager.js:47:10)
+    at /home/runner/workspace/node_modules/spotify-web-api-node/src/http-manager.js:71:25
+    at callback (/home/runner/workspace/node_modules/superagent/src/node/index.js:902:3)
+    at IncomingMessage.<anonymous> (/home/runner/workspace/node_modules/superagent/src/node/index.js:1130:18)
+    at IncomingMessage.emit (node:events:536:35)
+    at endReadableNT (node:internal/streams/readable:1698:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  body: {},
+  headers: {
+    'cache-control': 'private, max-age=0',
+    'access-control-allow-origin': '*',
+    'access-control-allow-headers': 'Accept, App-Platform, Authorization, Content-Type, Origin, Retry-After, Spotify-App-Version, X-Cloud-Trace-Context, client-token, content-access-token',
+    'access-control-allow-methods': 'GET, POST, OPTIONS, PUT, DELETE, PATCH',
+    'access-control-allow-credentials': 'true',
+    'access-control-max-age': '604800',
+    'content-length': '0',
+    'strict-transport-security': 'max-age=31536000',
+    'x-content-type-options': 'nosniff',
+    'alt-svc': 'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000, h3=":443"; ma=2592000,h3-29=":443"; ma=2592000',
+    date: 'Sat, 08 Nov 2025 21:08:49 GMT',
+    server: 'envoy',
+    via: 'HTTP/2 edgeproxy, 1.1 google',
+    connection: 'close'
+  },
+  statusCode: 404
+}
+Spotify: Found 0 songs for query "rock music"

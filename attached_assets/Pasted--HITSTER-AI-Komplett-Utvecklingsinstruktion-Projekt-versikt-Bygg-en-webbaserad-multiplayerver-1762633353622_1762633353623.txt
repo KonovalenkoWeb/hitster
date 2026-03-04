@@ -1,0 +1,2172 @@
+# HITSTER AI - Komplett Utvecklingsinstruktion
+
+## Projektöversikt
+Bygg en webbaserad multiplayerversion av musikspelet Hitster med AI-styrd musikval, röstkommentarer och realtidssynkronisering mellan master-enhet och spelarklienter.
+
+## Teknisk Stack
+- **Frontend**: React med TypeScript
+- **Styling**: Tailwind CSS
+- **Backend**: Node.js med Express
+- **Realtid**: Socket.io för WebSocket-kommunikation
+- **LLM**: OpenRouter API (stödjer flera modeller)
+- **Text-to-Speech**: ElevenLabs API
+- **Musik**: Spotify Web Playback SDK och Spotify Web API
+- **QR-koder**: qrcode.react bibliotek
+- **Audio Playback**: Howler.js
+- **State Management**: Zustand
+
+## Spelflöde
+
+### Master-enhet
+1. Startar spel och möts av AI-chat
+2. Beskriver önskad musik (genre, årtal, etc.)
+3. AI genererar musikpreferenser och bekräftar med röst
+4. QR-kod visas för spelare att ansluta
+5. Startar spelet när alla är redo
+6. Spotify-spelare spelar låtar
+7. AI berättar fakta om varje låt med röst
+8. AI kommenterar resultat efter varje runda
+
+### Spelar-enheter
+1. Skannar QR-kod och anger namn
+2. Får ett slumpmässigt startår (1950-2020)
+3. Lyssnar på låt som spelas från master
+4. Placerar låt på sin tidslinje
+5. Ser om placeringen var korrekt
+6. Först till 10 korrekta placeringar vinner
+
+## Projektstruktur
+
+```
+hitster-ai/
+├── client/                 # React frontend
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── Master/
+│   │   │   │   ├── MasterLobby.tsx
+│   │   │   │   ├── AIChat.tsx
+│   │   │   │   ├── QRCodeDisplay.tsx
+│   │   │   │   ├── GameControl.tsx
+│   │   │   │   └── SpotifyPlayer.tsx
+│   │   │   ├── Player/
+│   │   │   │   ├── PlayerLobby.tsx
+│   │   │   │   ├── Timeline.tsx
+│   │   │   │   ├── CardPlacement.tsx
+│   │   │   │   └── ScoreDisplay.tsx
+│   │   │   └── Shared/
+│   │   │       ├── GameStatus.tsx
+│   │   │       ├── RevealScreen.tsx
+│   │   │       └── AudioPlayer.tsx
+│   │   ├── hooks/
+│   │   │   ├── useSocket.ts
+│   │   │   └── useSpotify.ts
+│   │   ├── services/
+│   │   │   ├── socketService.ts
+│   │   │   └── spotifyService.ts
+│   │   ├── types/
+│   │   │   └── game.types.ts
+│   │   ├── store/
+│   │   │   └── gameStore.ts
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   └── package.json
+├── server/                 # Node.js backend
+│   ├── src/
+│   │   ├── services/
+│   │   │   ├── gameService.ts
+│   │   │   ├── openRouterService.ts
+│   │   │   ├── elevenLabsService.ts
+│   │   │   └── spotifyService.ts
+│   │   ├── models/
+│   │   │   ├── Game.ts
+│   │   │   └── Player.ts
+│   │   ├── socket/
+│   │   │   └── socketHandlers.ts
+│   │   ├── types/
+│   │   │   └── game.types.ts
+│   │   └── server.ts
+│   └── package.json
+└── README.md
+```
+
+---
+
+## STEG 1: Grundläggande Setup
+
+### 1.1 Skapa projektstruktur
+```bash
+mkdir hitster-ai && cd hitster-ai
+mkdir client server
+```
+
+### 1.2 Sätt upp Server
+
+```bash
+cd server
+npm init -y
+```
+
+**Installera dependencies:**
+```bash
+npm install express socket.io cors dotenv axios
+npm install -D typescript @types/node @types/express @types/cors ts-node nodemon
+npm install elevenlabs
+```
+
+**Skapa `server/tsconfig.json`:**
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}
+```
+
+**Skapa `server/package.json` scripts:**
+```json
+{
+  "scripts": {
+    "dev": "nodemon --exec ts-node src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  }
+}
+```
+
+### 1.3 Sätt upp Client
+
+```bash
+cd ../client
+npm create vite@latest . -- --template react-ts
+```
+
+**Installera dependencies:**
+```bash
+npm install socket.io-client qrcode.react zustand howler
+npm install -D tailwindcss postcss autoprefixer @types/howler
+npx tailwindcss init -p
+```
+
+**Konfigurera Tailwind - `client/tailwind.config.js`:**
+```javascript
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+```
+
+**Uppdatera `client/src/index.css`:**
+```css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+```
+
+---
+
+## STEG 2: TypeScript Types och Modeller
+
+### 2.1 Shared Types - `server/src/types/game.types.ts` och `client/src/types/game.types.ts`
+
+```typescript
+export interface Song {
+  id: string;
+  title: string;
+  artist: string;
+  year: number;
+  spotifyUri: string;
+  previewUrl?: string;
+  albumCover?: string;
+}
+
+export interface Player {
+  id: string;
+  name: string;
+  timeline: Song[];
+  startYear: number;
+  score: number;
+  isReady: boolean;
+  currentPlacement?: { song: Song; position: number };
+}
+
+export interface GameState {
+  id: string;
+  masterSocketId: string;
+  players: Map<string, Player>;
+  currentSong: Song | null;
+  songs: Song[];
+  phase: 'setup' | 'lobby' | 'playing' | 'reveal' | 'finished';
+  musicPreferences: string;
+  searchQuery: string;
+  roundNumber: number;
+  winner: Player | null;
+}
+
+export interface AIResponse {
+  searchQuery: string;
+  preferences: string;
+  response: string;
+  voicePrompt: string;
+}
+
+export interface RoundResult {
+  playerId: string;
+  playerName: string;
+  correct: boolean;
+  placedAt: number;
+  correctYear: number;
+}
+```
+
+### 2.2 Game Model - `server/src/models/Game.ts`
+
+```typescript
+import { Song, Player, GameState, RoundResult } from '../types/game.types';
+
+export class Game {
+  private state: GameState;
+
+  constructor(masterSocketId: string) {
+    this.state = {
+      id: this.generateGameId(),
+      masterSocketId,
+      players: new Map(),
+      currentSong: null,
+      songs: [],
+      phase: 'setup',
+      musicPreferences: '',
+      searchQuery: '',
+      roundNumber: 0,
+      winner: null
+    };
+  }
+
+  private generateGameId(): string {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+  }
+
+  getState(): GameState {
+    return this.state;
+  }
+
+  addPlayer(socketId: string, name: string): Player {
+    const startYear = Math.floor(Math.random() * (2020 - 1950 + 1)) + 1950;
+    const player: Player = {
+      id: socketId,
+      name,
+      timeline: [],
+      startYear,
+      score: 0,
+      isReady: false
+    };
+    this.state.players.set(socketId, player);
+    return player;
+  }
+
+  removePlayer(socketId: string): void {
+    this.state.players.delete(socketId);
+  }
+
+  setMusicPreferences(preferences: string, searchQuery: string): void {
+    this.state.musicPreferences = preferences;
+    this.state.searchQuery = searchQuery;
+  }
+
+  setSongs(songs: Song[]): void {
+    // Shuffla låtarna
+    this.state.songs = songs.sort(() => Math.random() - 0.5);
+  }
+
+  setPhase(phase: GameState['phase']): void {
+    this.state.phase = phase;
+  }
+
+  nextRound(): Song | null {
+    if (this.state.roundNumber >= this.state.songs.length) {
+      return null;
+    }
+
+    this.state.currentSong = this.state.songs[this.state.roundNumber];
+    this.state.roundNumber++;
+    
+    // Återställ alla spelares ready-status
+    this.state.players.forEach(player => {
+      player.isReady = false;
+      player.currentPlacement = undefined;
+    });
+
+    return this.state.currentSong;
+  }
+
+  placeSong(playerId: string, position: number): void {
+    const player = this.state.players.get(playerId);
+    if (!player || !this.state.currentSong) return;
+
+    player.currentPlacement = {
+      song: this.state.currentSong,
+      position
+    };
+    player.isReady = true;
+  }
+
+  allPlayersReady(): boolean {
+    return Array.from(this.state.players.values()).every(p => p.isReady);
+  }
+
+  evaluateRound(): RoundResult[] {
+    const results: RoundResult[] = [];
+
+    this.state.players.forEach(player => {
+      if (!player.currentPlacement || !this.state.currentSong) return;
+
+      const { song, position } = player.currentPlacement;
+      const timeline = player.timeline;
+
+      // Kolla om placeringen är korrekt
+      let correct = false;
+
+      if (timeline.length === 0) {
+        // Första kortet - alltid rätt
+        correct = true;
+      } else if (position === 0) {
+        // Placerat först - måste vara äldre än första kortet
+        correct = song.year <= timeline[0].year;
+      } else if (position === timeline.length) {
+        // Placerat sist - måste vara nyare än sista kortet
+        correct = song.year >= timeline[timeline.length - 1].year;
+      } else {
+        // Placerat mellan två kort
+        const before = timeline[position - 1];
+        const after = timeline[position];
+        correct = song.year >= before.year && song.year <= after.year;
+      }
+
+      if (correct) {
+        // Lägg till i tidslinje
+        player.timeline.splice(position, 0, song);
+        player.score++;
+      }
+
+      results.push({
+        playerId: player.id,
+        playerName: player.name,
+        correct,
+        placedAt: position,
+        correctYear: song.year
+      });
+    });
+
+    return results;
+  }
+
+  checkWinner(): Player | null {
+    const players = Array.from(this.state.players.values());
+    const winner = players.find(p => p.score >= 10);
+    
+    if (winner) {
+      this.state.winner = winner;
+      this.state.phase = 'finished';
+    }
+
+    return winner || null;
+  }
+
+  getPlayers(): Player[] {
+    return Array.from(this.state.players.values());
+  }
+}
+```
+
+---
+
+## STEG 3: OpenRouter Service
+
+### `server/src/services/openRouterService.ts`
+
+```typescript
+import axios from 'axios';
+import { AIResponse } from '../types/game.types';
+
+export class OpenRouterService {
+  private static baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+  
+  static async chat(messages: any[], systemPrompt?: string): Promise<string> {
+    try {
+      const response = await axios.post(
+        this.baseUrl,
+        {
+          model: 'anthropic/claude-3.5-sonnet', // eller 'meta-llama/llama-3.1-70b-instruct'
+          messages: systemPrompt 
+            ? [{ role: 'system', content: systemPrompt }, ...messages]
+            : messages,
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            'HTTP-Referer': process.env.APP_URL || 'http://localhost:5173',
+            'X-Title': 'Hitster AI',
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      return response.data.choices[0].message.content;
+    } catch (error) {
+      console.error('OpenRouter API error:', error);
+      throw error;
+    }
+  }
+
+  static async getMusicRecommendations(userMessage: string): Promise<AIResponse> {
+    const systemPrompt = `Du är en entusiastisk spelledare för musikspelet Hitster. 
+    Du hjälper spelarna välja musik och skapar en rolig atmosfär.
+    Svara alltid på svenska och var energisk och positiv.
+    
+    När användaren beskriver sina musikpreferenser, svara med JSON i exakt detta format:
+    {
+      "searchQuery": "spotify-sökquery baserat på preferenser (t.ex. 'genre:rock year:1980-1990')",
+      "preferences": "kort beskrivning av vad användaren vill ha",
+      "response": "en entusiastisk bekräftelse till användaren",
+      "voicePrompt": "en kort mening som passar för TTS (max 2 meningar, naturligt talspråk)"
+    }
+    
+    Viktigt: Svara ENDAST med valid JSON, ingen annan text.`;
+
+    const response = await this.chat([
+      { role: 'user', content: userMessage }
+    ], systemPrompt);
+
+    // Rensa bort eventuella markdown code blocks
+    const cleanedResponse = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+    return JSON.parse(cleanedResponse);
+  }
+
+  static async generateSongCommentary(song: any, context: string = ''): Promise<string> {
+    const systemPrompt = `Du är en rolig och kunnig spelledare för musikspelet Hitster.
+    Din uppgift är att berätta intressanta fakta om låtar på ett underhållande sätt.
+    Håll kommentarerna korta (2-3 meningar) och engagerande.
+    Prata alltid på svenska och använd naturligt talspråk.
+    Fokusera på intressanta fakta, historiska detaljer eller roliga anekdoter.`;
+
+    const response = await this.chat([
+      { 
+        role: 'user', 
+        content: `Berätta något intressant om låten "${song.title}" av ${song.artist} från ${song.year}. ${context}`
+      }
+    ], systemPrompt);
+
+    return response;
+  }
+
+  static async generateResultCommentary(results: any[]): Promise<string> {
+    const systemPrompt = `Du är en entusiastisk spelledare för musikspelet Hitster.
+    Kommentera resultaten från rundan på ett roligt och uppmuntrande sätt.
+    Håll kommentaren kort (2-3 meningar).
+    Prata alltid på svenska och använd naturligt talspråk.
+    Var positiv och uppmuntrande även till de som svarade fel.`;
+
+    const correctPlayers = results.filter(r => r.correct).map(r => r.playerName);
+    const wrongPlayers = results.filter(r => !r.correct).map(r => r.playerName);
+
+    let contextMessage = '';
+    if (correctPlayers.length === results.length) {
+      contextMessage = `Alla ${results.length} spelare placerade rätt! (${correctPlayers.join(', ')})`;
+    } else if (correctPlayers.length === 0) {
+      contextMessage = `Ingen placerade rätt den här gången. (${wrongPlayers.join(', ')})`;
+    } else {
+      contextMessage = `${correctPlayers.length} av ${results.length} spelare placerade rätt (${correctPlayers.join(', ')}), 
+      ${wrongPlayers.length} placerade fel (${wrongPlayers.join(', ')})`;
+    }
+
+    const response = await this.chat([
+      {
+        role: 'user',
+        content: contextMessage
+      }
+    ], systemPrompt);
+
+    return response;
+  }
+
+  static async generateWelcome(): Promise<string> {
+    const systemPrompt = `Du är en entusiastisk spelledare för musikspelet Hitster.
+    Hälsa spelarna välkomna på ett energiskt och roligt sätt.
+    Håll det kort (1-2 meningar).
+    Prata på svenska.`;
+
+    const response = await this.chat([
+      { role: 'user', content: 'Hälsa spelarna välkomna till spelet!' }
+    ], systemPrompt);
+
+    return response;
+  }
+}
+```
+
+---
+
+## STEG 4: ElevenLabs Service
+
+### `server/src/services/elevenLabsService.ts`
+
+```typescript
+import { ElevenLabsClient } from 'elevenlabs';
+import * as fs from 'fs';
+import * as path from 'path';
+
+export class ElevenLabsService {
+  private static client = new ElevenLabsClient({
+    apiKey: process.env.ELEVENLABS_API_KEY
+  });
+
+  // Välj en svensk röst eller en som låter bra på svenska
+  // Du kan hitta röst-ID:n på https://elevenlabs.io/voice-library
+  private static voiceId = process.env.ELEVENLABS_VOICE_ID || 'pNInz6obpgDQGcFmaJgB';
+
+  static async textToSpeech(text: string): Promise<Buffer> {
+    try {
+      const audio = await this.client.generate({
+        voice: this.voiceId,
+        text: text,
+        model_id: 'eleven_multilingual_v2', // Stödjer svenska
+      });
+
+      // Konvertera stream till buffer
+      const chunks: Buffer[] = [];
+      for await (const chunk of audio) {
+        chunks.push(chunk);
+      }
+      
+      return Buffer.concat(chunks);
+    } catch (error) {
+      console.error('ElevenLabs TTS error:', error);
+      throw error;
+    }
+  }
+
+  static async textToSpeechFile(text: string, outputPath: string): Promise<string> {
+    const audioBuffer = await this.textToSpeech(text);
+    const fullPath = path.join(__dirname, '../../public/audio', outputPath);
+    
+    // Skapa directory om det inte finns
+    const dir = path.dirname(fullPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    
+    fs.writeFileSync(fullPath, audioBuffer);
+    return fullPath;
+  }
+
+  // Cache för att undvika onödiga API-anrop för vanliga fraser
+  private static audioCache = new Map<string, Buffer>();
+
+  static async getCachedAudio(text: string): Promise<Buffer> {
+    const cacheKey = text.toLowerCase().trim();
+    
+    if (this.audioCache.has(cacheKey)) {
+      console.log('Using cached audio for:', text);
+      return this.audioCache.get(cacheKey)!;
+    }
+
+    const audio = await this.textToSpeech(text);
+    
+    // Cache bara om texten är kort (vanliga fraser)
+    if (text.length < 100) {
+      this.audioCache.set(cacheKey, audio);
+    }
+    
+    return audio;
+  }
+
+  // Förladda vanliga fraser
+  static async preloadCommonPhrases(): Promise<void> {
+    const commonPhrases = [
+      'Nästa låt!',
+      'Bra jobbat!',
+      'Tyvärr fel!',
+      'Perfekt!',
+      'Låt oss börja!'
+    ];
+
+    for (const phrase of commonPhrases) {
+      try {
+        await this.getCachedAudio(phrase);
+        console.log(`Preloaded: ${phrase}`);
+      } catch (error) {
+        console.error(`Failed to preload: ${phrase}`, error);
+      }
+    }
+  }
+}
+```
+
+---
+
+## STEG 5: Spotify Service
+
+### `server/src/services/spotifyService.ts`
+
+```typescript
+import axios from 'axios';
+import { Song } from '../types/game.types';
+
+export class SpotifyService {
+  private static accessToken: string;
+  private static tokenExpiry: number;
+
+  static async authenticate(): Promise<void> {
+    try {
+      const response = await axios.post(
+        'https://accounts.spotify.com/api/token',
+        'grant_type=client_credentials',
+        {
+          headers: {
+            'Authorization': `Basic ${Buffer.from(
+              `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
+            ).toString('base64')}`,
+            'Content-Type': 'application/x-www-form-urlencoded'
+          }
+        }
+      );
+      
+      this.accessToken = response.data.access_token;
+      this.tokenExpiry = Date.now() + (response.data.expires_in * 1000);
+      console.log('Spotify authenticated successfully');
+    } catch (error) {
+      console.error('Spotify authentication error:', error);
+      throw error;
+    }
+  }
+
+  private static async ensureValidToken(): Promise<void> {
+    if (!this.accessToken || Date.now() >= this.tokenExpiry) {
+      await this.authenticate();
+    }
+  }
+
+  static async getSongs(searchQuery: string, limit: number = 50): Promise<Song[]> {
+    await this.ensureValidToken();
+
+    try {
+      const response = await axios.get(
+        `https://api.spotify.com/v1/search`,
+        {
+          params: {
+            q: searchQuery,
+            type: 'track',
+            limit: limit,
+            market: 'SE' // Sverige
+          },
+          headers: { 
+            'Authorization': `Bearer ${this.accessToken}` 
+          }
+        }
+      );
+
+      const tracks = response.data.tracks.items;
+      
+      // Filtrera bort låtar utan release date och konvertera till vårt format
+      const songs: Song[] = tracks
+        .filter((track: any) => track.album.release_date)
+        .map((track: any) => ({
+          id: track.id,
+          title: track.name,
+          artist: track.artists[0].name,
+          year: new Date(track.album.release_date).getFullYear(),
+          spotifyUri: track.uri,
+          previewUrl: track.preview_url,
+          albumCover: track.album.images[0]?.url
+        }));
+
+      // Filtrera för att få variation i år
+      const filteredSongs = this.ensureYearVariation(songs);
+
+      return filteredSongs.slice(0, 30); // Max 30 låtar per spel
+    } catch (error) {
+      console.error('Spotify search error:', error);
+      throw error;
+    }
+  }
+
+  private static ensureYearVariation(songs: Song[]): Song[] {
+    // Sortera låtar i olika årskategorier för bättre variation
+    const decades = new Map<number, Song[]>();
+    
+    songs.forEach(song => {
+      const decade = Math.floor(song.year / 10) * 10;
+      if (!decades.has(decade)) {
+        decades.set(decade, []);
+      }
+      decades.get(decade)!.push(song);
+    });
+
+    // Ta några låtar från varje årtionde
+    const result: Song[] = [];
+    decades.forEach(songs => {
+      // Shuffla och ta upp till 5 från varje årtionde
+      const shuffled = songs.sort(() => Math.random() - 0.5);
+      result.push(...shuffled.slice(0, 5));
+    });
+
+    return result.sort(() => Math.random() - 0.5);
+  }
+}
+```
+
+---
+
+## STEG 6: Socket.io Setup
+
+### `server/src/socket/socketHandlers.ts`
+
+```typescript
+import { Server, Socket } from 'socket.io';
+import { Game } from '../models/Game';
+import { OpenRouterService } from '../services/openRouterService';
+import { ElevenLabsService } from '../services/elevenLabsService';
+import { SpotifyService } from '../services/spotifyService';
+
+const games = new Map<string, Game>();
+
+export function setupSocketHandlers(io: Server) {
+  io.on('connection', (socket: Socket) => {
+    console.log('Client connected:', socket.id);
+
+    // Master skapar spel
+    socket.on('create-game', async () => {
+      const game = new Game(socket.id);
+      games.set(game.getState().id, game);
+      socket.join(game.getState().id);
+
+      // Generera välkomsttext och röst
+      const welcomeText = await OpenRouterService.generateWelcome();
+      const welcomeAudio = await ElevenLabsService.textToSpeech(welcomeText);
+
+      socket.emit('game-created', {
+        gameId: game.getState().id,
+        qrCodeUrl: `${process.env.CLIENT_URL}/join/${game.getState().id}`,
+        welcome: {
+          text: welcomeText,
+          audio: welcomeAudio.toString('base64')
+        }
+      });
+    });
+
+    // AI-chat för musikval med röst
+    socket.on('ai-chat-message', async ({ gameId, message }) => {
+      const game = games.get(gameId);
+      if (!game) {
+        socket.emit('error', 'Game not found');
+        return;
+      }
+
+      try {
+        const aiResponse = await OpenRouterService.getMusicRecommendations(message);
+        
+        // Generera röst för svaret
+        const audioBuffer = await ElevenLabsService.textToSpeech(aiResponse.voicePrompt);
+        
+        // Spara preferenser
+        game.setMusicPreferences(aiResponse.preferences, aiResponse.searchQuery);
+        
+        // Skicka både text och audio
+        socket.emit('ai-chat-response', {
+          text: aiResponse.response,
+          audio: audioBuffer.toString('base64'),
+          preferences: aiResponse.preferences,
+          searchQuery: aiResponse.searchQuery
+        });
+      } catch (error) {
+        console.error('AI chat error:', error);
+        socket.emit('error', 'AI chat failed');
+      }
+    });
+
+    // Spelare ansluter
+    socket.on('join-game', ({ gameId, playerName }) => {
+      const game = games.get(gameId);
+      if (!game) {
+        socket.emit('error', 'Spelet hittades inte');
+        return;
+      }
+
+      if (game.getState().phase !== 'lobby') {
+        socket.emit('error', 'Spelet har redan startat');
+        return;
+      }
+
+      const player = game.addPlayer(socket.id, playerName);
+      socket.join(gameId);
+      
+      // Skicka spelarinfo
+      socket.emit('player-joined', player);
+      
+      // Meddela master om ny spelare
+      io.to(game.getState().masterSocketId).emit('player-list-updated', 
+        game.getPlayers()
+      );
+    });
+
+    // Starta spelet
+    socket.on('start-game', async ({ gameId }) => {
+      const game = games.get(gameId);
+      if (!game || game.getState().masterSocketId !== socket.id) {
+        socket.emit('error', 'Not authorized or game not found');
+        return;
+      }
+
+      try {
+        // Hämta låtar från Spotify
+        const searchQuery = game.getState().searchQuery || 'year:1970-2020';
+        const songs = await SpotifyService.getSongs(searchQuery);
+        
+        if (songs.length === 0) {
+          socket.emit('error', 'Inga låtar hittades');
+          return;
+        }
+
+        game.setSongs(songs);
+        game.setPhase('playing');
+
+        // Meddela alla att spelet startar
+        io.to(gameId).emit('game-started', {
+          players: game.getPlayers()
+        });
+
+        // Starta första rundan
+        const firstSong = game.nextRound();
+        if (firstSong) {
+          io.to(game.getState().masterSocketId).emit('play-song', firstSong);
+        }
+      } catch (error) {
+        console.error('Start game error:', error);
+        socket.emit('error', 'Failed to start game');
+      }
+    });
+
+    // När låt börjar spelas - berätta om den
+    socket.on('song-started', async ({ gameId, song }) => {
+      const game = games.get(gameId);
+      if (!game) return;
+
+      try {
+        // Generera kommentar om låten
+        const commentary = await OpenRouterService.generateSongCommentary(song);
+        const audioBuffer = await ElevenLabsService.textToSpeech(commentary);
+
+        io.to(gameId).emit('song-commentary', {
+          text: commentary,
+          audio: audioBuffer.toString('base64')
+        });
+      } catch (error) {
+        console.error('Song commentary error:', error);
+      }
+    });
+
+    // Spelare placerar låt
+    socket.on('place-song', async ({ gameId, position }) => {
+      const game = games.get(gameId);
+      if (!game) return;
+
+      game.placeSong(socket.id, position);
+      
+      // Meddela andra att denna spelare är klar
+      io.to(gameId).emit('player-ready', {
+        playerId: socket.id,
+        readyCount: game.getPlayers().filter(p => p.isReady).length,
+        totalCount: game.getPlayers().length
+      });
+      
+      // Kolla om alla är klara
+      if (game.allPlayersReady()) {
+        game.setPhase('reveal');
+        
+        // Rätta svar och uppdatera poäng
+        const results = game.evaluateRound();
+        
+        try {
+          // Generera resultatkommentar med röst
+          const commentary = await OpenRouterService.generateResultCommentary(results);
+          const audioBuffer = await ElevenLabsService.textToSpeech(commentary);
+
+          io.to(gameId).emit('round-results', {
+            results,
+            commentary: {
+              text: commentary,
+              audio: audioBuffer.toString('base64')
+            }
+          });
+        } catch (error) {
+          console.error('Result commentary error:', error);
+          io.to(gameId).emit('round-results', { results });
+        }
+        
+        // Kolla om någon vunnit
+        const winner = game.checkWinner();
+        if (winner) {
+          try {
+            const winnerText = `Grattis ${winner.name}! Du vann spelet med ${winner.score} poäng! Fantastiskt jobbat!`;
+            const winnerAudio = await ElevenLabsService.textToSpeech(winnerText);
+            
+            io.to(gameId).emit('game-finished', { 
+              winner,
+              celebration: {
+                text: winnerText,
+                audio: winnerAudio.toString('base64')
+              }
+            });
+          } catch (error) {
+            console.error('Winner celebration error:', error);
+            io.to(gameId).emit('game-finished', { winner });
+          }
+        } else {
+          // Nästa runda efter delay
+          setTimeout(async () => {
+            game.setPhase('playing');
+            const nextSong = game.nextRound();
+            
+            if (nextSong) {
+              io.to(game.getState().masterSocketId).emit('play-song', nextSong);
+              
+              try {
+                const nextRoundText = `Nästa låt! Detta är runda ${game.getState().roundNumber}.`;
+                const nextRoundAudio = await ElevenLabsService.textToSpeech(nextRoundText);
+                
+                io.to(gameId).emit('next-round', { 
+                  roundNumber: game.getState().roundNumber,
+                  announcement: {
+                    text: nextRoundText,
+                    audio: nextRoundAudio.toString('base64')
+                  }
+                });
+              } catch (error) {
+                console.error('Next round announcement error:', error);
+                io.to(gameId).emit('next-round', { 
+                  roundNumber: game.getState().roundNumber
+                });
+              }
+            }
+          }, 5000);
+        }
+      }
+    });
+
+    // Frånkoppling
+    socket.on('disconnect', () => {
+      console.log('Client disconnected:', socket.id);
+      
+      // Hitta spel där denna socket är master eller spelare
+      games.forEach((game, gameId) => {
+        if (game.getState().masterSocketId === socket.id) {
+          // Master disconnected - avsluta spelet
+          io.to(gameId).emit('game-ended', { reason: 'Master disconnected' });
+          games.delete(gameId);
+        } else if (game.getState().players.has(socket.id)) {
+          // Spelare disconnected
+          const player = game.getState().players.get(socket.id);
+          game.removePlayer(socket.id);
+          
+          io.to(game.getState().masterSocketId).emit('player-list-updated', 
+            game.getPlayers()
+          );
+          
+          io.to(gameId).emit('player-left', {
+            playerName: player?.name
+          });
+        }
+      });
+    });
+  });
+}
+```
+
+### `server/src/server.ts`
+
+```typescript
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import { setupSocketHandlers } from './socket/socketHandlers';
+import { ElevenLabsService } from './services/elevenLabsService';
+
+dotenv.config();
+
+const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    methods: ['GET', 'POST']
+  }
+});
+
+app.use(cors());
+app.use(express.json());
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
+// Setup socket handlers
+setupSocketHandlers(io);
+
+const PORT = process.env.PORT || 3001;
+
+httpServer.listen(PORT, async () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  
+  // Preload common phrases
+  try {
+    await ElevenLabsService.preloadCommonPhrases();
+    console.log('✅ Common phrases preloaded');
+  } catch (error) {
+    console.error('Failed to preload phrases:', error);
+  }
+});
+```
+
+---
+
+## STEG 7: React Components
+
+### 7.1 Socket Hook - `client/src/hooks/useSocket.ts`
+
+```typescript
+import { useEffect, useState } from 'react';
+import { io, Socket } from 'socket.io-client';
+
+const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+export function useSocket() {
+  const [socket, setSocket] = useState<Socket | null>(null);
+
+  useEffect(() => {
+    const socketInstance = io(SOCKET_URL, {
+      transports: ['websocket'],
+      autoConnect: true
+    });
+
+    socketInstance.on('connect', () => {
+      console.log('Connected to server');
+    });
+
+    socketInstance.on('disconnect', () => {
+      console.log('Disconnected from server');
+    });
+
+    socketInstance.on('error', (error: any) => {
+      console.error('Socket error:', error);
+    });
+
+    setSocket(socketInstance);
+
+    return () => {
+      socketInstance.close();
+    };
+  }, []);
+
+  return socket;
+}
+```
+
+### 7.2 Audio Player - `client/src/components/Shared/AudioPlayer.tsx`
+
+```typescript
+import { useEffect, useRef } from 'react';
+import { Howl } from 'howler';
+
+interface AudioPlayerProps {
+  audioBase64: string;
+  autoPlay?: boolean;
+  onEnd?: () => void;
+}
+
+export function AudioPlayer({ audioBase64, autoPlay = true, onEnd }: AudioPlayerProps) {
+  const soundRef = useRef<Howl | null>(null);
+
+  useEffect(() => {
+    if (!audioBase64) return;
+
+    // Konvertera base64 till data URL
+    const audioUrl = `data:audio/mpeg;base64,${audioBase64}`;
+
+    // Skapa och spela ljud
+    soundRef.current = new Howl({
+      src: [audioUrl],
+      format: ['mp3'],
+      autoplay: autoPlay,
+      volume: 0.8,
+      onend: () => {
+        if (onEnd) onEnd();
+      },
+      onloaderror: (id, error) => {
+        console.error('Audio load error:', error);
+      },
+      onplayerror: (id, error) => {
+        console.error('Audio play error:', error);
+      }
+    });
+
+    return () => {
+      if (soundRef.current) {
+        soundRef.current.unload();
+      }
+    };
+  }, [audioBase64, autoPlay, onEnd]);
+
+  return null; // Ingen visuell komponent behövs
+}
+```
+
+### 7.3 AI Chat - `client/src/components/Master/AIChat.tsx`
+
+```typescript
+import { useState, useEffect, useRef } from 'react';
+import { Socket } from 'socket.io-client';
+import { AudioPlayer } from '../Shared/AudioPlayer';
+
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+interface AIChatProps {
+  socket: Socket;
+  gameId: string;
+  onComplete: () => void;
+}
+
+export function AIChat({ socket, gameId, onComplete }: AIChatProps) {
+  const [messages, setMessages] = useState<Message[]>([
+    { role: 'assistant', content: 'Hej! Jag är er AI-spelledare. Vilken typ av musik vill ni spela med idag? Berätta om era musikpreferenser!' }
+  ]);
+  const [input, setInput] = useState('');
+  const [currentAudio, setCurrentAudio] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [preferences, setPreferences] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    socket.on('ai-chat-response', (data: any) => {
+      setMessages(prev => [...prev, 
+        { role: 'assistant', content: data.text }
+      ]);
+      setCurrentAudio(data.audio);
+      setPreferences(data.preferences);
+      setIsLoading(false);
+    });
+
+    return () => {
+      socket.off('ai-chat-response');
+    };
+  }, [socket]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSend = () => {
+    if (!input.trim() || isLoading) return;
+
+    setMessages(prev => [...prev, { role: 'user', content: input }]);
+    setIsLoading(true);
+    socket.emit('ai-chat-message', { gameId, message: input });
+    setInput('');
+  };
+
+  return (
+    <div className="flex flex-col h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+      <div className="p-6 bg-black bg-opacity-30 backdrop-blur-sm">
+        <h1 className="text-4xl font-bold text-white text-center">🎵 Hitster AI</h1>
+        <p className="text-center text-purple-200 mt-2">Musikval med AI</p>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        {messages.map((msg, i) => (
+          <div
+            key={i}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div
+              className={`max-w-md px-6 py-4 rounded-2xl ${
+                msg.role === 'user'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-white bg-opacity-20 backdrop-blur-sm text-white'
+              }`}
+            >
+              {msg.content}
+            </div>
+          </div>
+        ))}
+        
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className="bg-white bg-opacity-20 backdrop-blur-sm text-white px-6 py-4 rounded-2xl">
+              <div className="flex space-x-2">
+                <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div className="p-6 bg-black bg-opacity-30 backdrop-blur-sm">
+        {preferences && (
+          <button
+            onClick={onComplete}
+            className="w-full mb-4 px-6 py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold transition-all transform hover:scale-105"
+          >
+            Fortsätt till lobby →
+          </button>
+        )}
+        
+        <div className="flex space-x-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+            placeholder="T.ex: 'Vi vill ha 80-tals rock och pop'"
+            className="flex-1 px-6 py-4 rounded-xl bg-white bg-opacity-20 backdrop-blur-sm text-white placeholder-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-400"
+            disabled={isLoading}
+          />
+          <button
+            onClick={handleSend}
+            disabled={isLoading || !input.trim()}
+            className="px-8 py-4 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-xl font-bold transition-all"
+          >
+            Skicka
+          </button>
+        </div>
+      </div>
+
+      {currentAudio && <AudioPlayer audioBase64={currentAudio} autoPlay={true} />}
+    </div>
+  );
+}
+```
+
+### 7.4 QR Code Display - `client/src/components/Master/QRCodeDisplay.tsx`
+
+```typescript
+import QRCode from 'qrcode.react';
+
+interface QRCodeDisplayProps {
+  url: string;
+  gameId: string;
+}
+
+export function QRCodeDisplay({ url, gameId }: QRCodeDisplayProps) {
+  return (
+    <div className="flex flex-col items-center justify-center p-8 bg-white bg-opacity-10 backdrop-blur-sm rounded-2xl">
+      <h2 className="text-3xl font-bold text-white mb-4">Spel-ID: {gameId}</h2>
+      <p className="text-purple-200 mb-6">Skanna QR-koden för att ansluta</p>
+      
+      <div className="bg-white p-6 rounded-2xl">
+        <QRCode value={url} size={256} level="H" />
+      </div>
+      
+      <p className="text-white mt-6 text-center">
+        Eller gå till: <br />
+        <span className="font-mono text-purple-300">{url}</span>
+      </p>
+    </div>
+  );
+}
+```
+
+### 7.5 Player List - `client/src/components/Master/PlayerList.tsx`
+
+```typescript
+import { Player } from '../../types/game.types';
+
+interface PlayerListProps {
+  players: Player[];
+}
+
+export function PlayerList({ players }: PlayerListProps) {
+  return (
+    <div className="bg-white bg-opacity-10 backdrop-blur-sm rounded-2xl p-6">
+      <h3 className="text-2xl font-bold text-white mb-4">
+        Spelare ({players.length})
+      </h3>
+      
+      {players.length === 0 ? (
+        <p className="text-purple-200 text-center py-8">
+          Väntar på spelare...
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {players.map((player) => (
+            <div
+              key={player.id}
+              className="flex items-center justify-between bg-white bg-opacity-20 rounded-xl p-4"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold">
+                  {player.name.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-white font-medium">{player.name}</span>
+              </div>
+              <div className="text-purple-200 text-sm">
+                Startår: {player.startYear}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### 7.6 Master Lobby - `client/src/components/Master/MasterLobby.tsx`
+
+```typescript
+import { useState, useEffect } from 'react';
+import { useSocket } from '../../hooks/useSocket';
+import { Player } from '../../types/game.types';
+import { AIChat } from './AIChat';
+import { QRCodeDisplay } from './QRCodeDisplay';
+import { PlayerList } from './PlayerList';
+import { GameControl } from './GameControl';
+import { AudioPlayer } from '../Shared/AudioPlayer';
+
+export function MasterLobby() {
+  const socket = useSocket();
+  const [gameId, setGameId] = useState<string>('');
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [phase, setPhase] = useState<'setup' | 'lobby' | 'playing'>('setup');
+  const [welcomeAudio, setWelcomeAudio] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.emit('create-game');
+
+    socket.on('game-created', ({ gameId, qrCodeUrl, welcome }) => {
+      setGameId(gameId);
+      setQrCodeUrl(qrCodeUrl);
+      if (welcome) {
+        setWelcomeAudio(welcome.audio);
+      }
+    });
+
+    socket.on('player-list-updated', (playerList: Player[]) => {
+      setPlayers(playerList);
+    });
+
+    socket.on('game-started', () => {
+      setPhase('playing');
+    });
+
+    socket.on('error', (error: string) => {
+      alert(error);
+    });
+
+    return () => {
+      socket.off('game-created');
+      socket.off('player-list-updated');
+      socket.off('game-started');
+      socket.off('error');
+    };
+  }, [socket]);
+
+  const handleStartGame = () => {
+    if (players.length === 0) {
+      alert('Vänta på att spelare ansluter först!');
+      return;
+    }
+    socket?.emit('start-game', { gameId });
+  };
+
+  if (!socket) {
+    return <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
+      Ansluter...
+    </div>;
+  }
+
+  if (phase === 'setup') {
+    return (
+      <>
+        <AIChat 
+          socket={socket} 
+          gameId={gameId} 
+          onComplete={() => setPhase('lobby')} 
+        />
+        {welcomeAudio && <AudioPlayer audioBase64={welcomeAudio} autoPlay={true} />}
+      </>
+    );
+  }
+
+  if (phase === 'lobby') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-8">
+        <div className="max-w-4xl mx-auto space-y-8">
+          <h1 className="text-5xl font-bold text-white text-center mb-8">
+            🎵 Hitster AI
+          </h1>
+          
+          <QRCodeDisplay url={qrCodeUrl} gameId={gameId} />
+          
+          <PlayerList players={players} />
+          
+          <button
+            onClick={handleStartGame}
+            disabled={players.length === 0}
+            className="w-full px-8 py-6 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white text-2xl rounded-2xl font-bold transition-all transform hover:scale-105 disabled:transform-none"
+          >
+            Starta Spel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return <GameControl socket={socket} gameId={gameId} />;
+}
+```
+
+### 7.7 Spotify Player - `client/src/components/Master/SpotifyPlayer.tsx`
+
+```typescript
+import { useEffect, useState } from 'react';
+import { Song } from '../../types/game.types';
+
+interface SpotifyPlayerProps {
+  song: Song;
+}
+
+export function SpotifyPlayer({ song }: SpotifyPlayerProps) {
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  useEffect(() => {
+    setIsPlaying(true);
+    
+    // Auto-stop after 30 seconds (eller när preview slutar)
+    const timer = setTimeout(() => {
+      setIsPlaying(false);
+    }, 30000);
+
+    return () => clearTimeout(timer);
+  }, [song]);
+
+  return (
+    <div className="bg-white bg-opacity-10 backdrop-blur-sm rounded-2xl p-8">
+      <div className="flex items-center space-x-6">
+        {song.albumCover && (
+          <img
+            src={song.albumCover}
+            alt={song.title}
+            className="w-32 h-32 rounded-xl shadow-2xl"
+          />
+        )}
+        
+        <div className="flex-1">
+          <h3 className="text-3xl font-bold text-white mb-2">
+            Gissa året!
+          </h3>
+          <p className="text-purple-200">Lyssna noga på låten...</p>
+          
+          {isPlaying && (
+            <div className="mt-4 flex items-center space-x-2">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+              <span className="text-green-400 text-sm">Spelar nu</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Preview player om tillgänglig */}
+      {song.previewUrl && (
+        <audio
+          src={song.previewUrl}
+          autoPlay
+          className="w-full mt-4"
+        />
+      )}
+    </div>
+  );
+}
+```
+
+### 7.8 Game Control - `client/src/components/Master/GameControl.tsx`
+
+```typescript
+import { useState, useEffect } from 'react';
+import { Socket } from 'socket.io-client';
+import { Song, Player, RoundResult } from '../../types/game.types';
+import { SpotifyPlayer } from './SpotifyPlayer';
+import { AudioPlayer } from '../Shared/AudioPlayer';
+
+interface GameControlProps {
+  socket: Socket;
+  gameId: string;
+}
+
+export function GameControl({ socket, gameId }: GameControlProps) {
+  const [currentSong, setCurrentSong] = useState<Song | null>(null);
+  const [commentary, setCommentary] = useState<{ text: string; audio: string } | null>(null);
+  const [results, setResults] = useState<RoundResult[] | null>(null);
+  const [roundNumber, setRoundNumber] = useState(0);
+  const [readyCount, setReadyCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [winner, setWinner] = useState<any>(null);
+
+  useEffect(() => {
+    socket.on('play-song', (song: Song) => {
+      setCurrentSong(song);
+      setCommentary(null);
+      setResults(null);
+      
+      // Berätta om låten efter 3 sekunder
+      setTimeout(() => {
+        socket.emit('song-started', { gameId, song });
+      }, 3000);
+    });
+
+    socket.on('song-commentary', (data: any) => {
+      setCommentary(data);
+    });
+
+    socket.on('player-ready', (data: any) => {
+      setReadyCount(data.readyCount);
+      setTotalCount(data.totalCount);
+    });
+
+    socket.on('round-results', (data: any) => {
+      setResults(data.results);
+      if (data.commentary) {
+        setCommentary(data.commentary);
+      }
+    });
+
+    socket.on('next-round', (data: any) => {
+      setRoundNumber(data.roundNumber);
+      setReadyCount(0);
+      if (data.announcement) {
+        setCommentary(data.announcement);
+      }
+    });
+
+    socket.on('game-finished', (data: any) => {
+      setWinner(data.winner);
+      if (data.celebration) {
+        setCommentary(data.celebration);
+      }
+    });
+
+    return () => {
+      socket.off('play-song');
+      socket.off('song-commentary');
+      socket.off('player-ready');
+      socket.off('round-results');
+      socket.off('next-round');
+      socket.off('game-finished');
+    };
+  }, [socket, gameId]);
+
+  if (winner) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 flex items-center justify-center p-8">
+        <div className="text-center">
+          <h1 className="text-6xl font-bold text-white mb-4">🏆 VINNARE! 🏆</h1>
+          <h2 className="text-4xl text-white mb-8">{winner.name}</h2>
+          <p className="text-2xl text-white">med {winner.score} poäng!</p>
+          
+          {commentary && (
+            <div className="mt-8 bg-white bg-opacity-20 backdrop-blur-sm rounded-2xl p-6 text-white">
+              {commentary.text}
+            </div>
+          )}
+        </div>
+        
+        {commentary && <AudioPlayer audioBase64={commentary.audio} autoPlay={true} />}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-8">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-4xl font-bold text-white">Runda {roundNumber}</h1>
+          <div className="text-white text-xl">
+            Klara: {readyCount}/{totalCount}
+          </div>
+        </div>
+
+        {currentSong && <SpotifyPlayer song={currentSong} />}
+
+        {commentary && (
+          <div className="bg-white bg-opacity-10 backdrop-blur-sm rounded-2xl p-6">
+            <p className="text-white text-lg">{commentary.text}</p>
+          </div>
+        )}
+
+        {results && (
+          <div className="bg-white bg-opacity-10 backdrop-blur-sm rounded-2xl p-6">
+            <h3 className="text-2xl font-bold text-white mb-4">Resultat</h3>
+            <p className="text-white mb-4">
+              Rätt svar: <span className="font-bold text-2xl">{currentSong?.year}</span>
+            </p>
+            
+            <div className="space-y-2">
+              {results.map((result) => (
+                <div
+                  key={result.playerId}
+                  className={`p-4 rounded-xl ${
+                    result.correct
+                      ? 'bg-green-600 bg-opacity-50'
+                      : 'bg-red-600 bg-opacity-50'
+                  }`}
+                >
+                  <span className="text-white font-medium">
+                    {result.playerName}
+                  </span>
+                  <span className="text-white ml-4">
+                    {result.correct ? '✓ Rätt!' : '✗ Fel'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {commentary && <AudioPlayer audioBase64={commentary.audio} autoPlay={true} />}
+    </div>
+  );
+}
+```
+
+### 7.9 Player Join - `client/src/components/Player/PlayerJoin.tsx`
+
+```typescript
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useSocket } from '../../hooks/useSocket';
+
+export function PlayerJoin() {
+  const { gameId } = useParams<{ gameId: string }>();
+  const navigate = useNavigate();
+  const socket = useSocket();
+  const [playerName, setPlayerName] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on('player-joined', (player) => {
+      navigate(`/player/${gameId}`, { state: { player } });
+    });
+
+    socket.on('error', (error: string) => {
+      setError(error);
+    });
+
+    return () => {
+      socket.off('player-joined');
+      socket.off('error');
+    };
+  }, [socket, gameId, navigate]);
+
+  const handleJoin = () => {
+    if (!playerName.trim()) {
+      setError('Ange ditt namn');
+      return;
+    }
+
+    socket?.emit('join-game', { gameId, playerName: playerName.trim() });
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-8">
+      <div className="bg-white bg-opacity-10 backdrop-blur-sm rounded-2xl p-8 max-w-md w-full">
+        <h1 className="text-4xl font-bold text-white text-center mb-6">
+          🎵 Hitster AI
+        </h1>
+        
+        <p className="text-purple-200 text-center mb-6">
+          Spel-ID: <span className="font-bold">{gameId}</span>
+        </p>
+
+        <div className="space-y-4">
+          <input
+            type="text"
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleJoin()}
+            placeholder="Ditt namn"
+            className="w-full px-6 py-4 rounded-xl bg-white bg-opacity-20 backdrop-blur-sm text-white placeholder-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-400"
+          />
+
+          {error && (
+            <p className="text-red-400 text-center">{error}</p>
+          )}
+
+          <button
+            onClick={handleJoin}
+            className="w-full px-6 py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold transition-all transform hover:scale-105"
+          >
+            Gå med i spel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+### 7.10 Player Timeline - `client/src/components/Player/Timeline.tsx`
+
+```typescript
+import { useState } from 'react';
+import { Song, Player } from '../../types/game.types';
+
+interface TimelineProps {
+  player: Player;
+  currentSong: Song | null;
+  onPlaceSong: (position: number) => void;
+  isWaiting: boolean;
+}
+
+export function Timeline({ player, currentSong, onPlaceSong, isWaiting }: TimelineProps) {
+  const [selectedPosition, setSelectedPosition] = useState<number | null>(null);
+
+  const handlePlace = () => {
+    if (selectedPosition !== null) {
+      onPlaceSong(selectedPosition);
+      setSelectedPosition(null);
+    }
+  };
+
+  if (isWaiting) {
+    return (
+      <div className="text-center text-white text-xl">
+        Väntar på nästa låt...
+      </div>
+    );
+  }
+
+  if (!currentSong) {
+    return (
+      <div className="text-center text-white text-xl">
+        Spelet startar snart...
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white bg-opacity-10 backdrop-blur-sm rounded-2xl p-6">
+        <h3 className="text-2xl font-bold text-white mb-2">
+          Placera låten på din tidslinje
+        </h3>
+        <p className="text-purple-200">
+          Poäng: {player.score} / 10
+        </p>
+      </div>
+
+      {/* Tidslinje */}
+      <div className="space-y-4">
+        {/* Startår */}
+        <div className="bg-purple-600 rounded-xl p-4 text-white font-bold text-center">
+          {player.startYear}
+        </div>
+
+        {/* Drop-zon innan första kortet */}
+        {player.timeline.length > 0 && (
+          <button
+            onClick={() => setSelectedPosition(0)}
+            className={`w-full p-4 border-2 border-dashed rounded-xl transition-all ${
+              selectedPosition === 0
+                ? 'border-green-400 bg-green-400 bg-opacity-20'
+                : 'border-purple-400 hover:border-purple-300'
+            }`}
+          >
+            {selectedPosition === 0 ? '✓ Placera här' : 'Placera här'}
+          </button>
+        )}
+
+        {/* Placerade kort med drop-zoner */}
+        {player.timeline.map((song, index) => (
+          <div key={song.id}>
+            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
+              <div className="text-white font-bold text-xl">{song.year}</div>
+              <div className="text-white">{song.title}</div>
+              <div className="text-purple-200 text-sm">{song.artist}</div>
+            </div>
+
+            {/* Drop-zon efter detta kort */}
+            <button
+              onClick={() => setSelectedPosition(index + 1)}
+              className={`w-full p-4 border-2 border-dashed rounded-xl transition-all mt-2 ${
+                selectedPosition === index + 1
+                  ? 'border-green-400 bg-green-400 bg-opacity-20'
+                  : 'border-purple-400 hover:border-purple-300'
+              }`}
+            >
+              {selectedPosition === index + 1 ? '✓ Placera här' : 'Placera här'}
+            </button>
+          </div>
+        ))}
+
+        {/* Om tidslinjen är tom */}
+        {player.timeline.length === 0 && (
+          <button
+            onClick={() => setSelectedPosition(0)}
+            className={`w-full p-6 border-2 border-dashed rounded-xl transition-all ${
+              selectedPosition === 0
+                ? 'border-green-400 bg-green-400 bg-opacity-20'
+                : 'border-purple-400 hover:border-purple-300'
+            }`}
+          >
+            <span className="text-white text-lg">
+              {selectedPosition === 0 ? '✓ Placera din första låt här' : 'Placera din första låt här'}
+            </span>
+          </button>
+        )}
+      </div>
+
+      {/* Bekräfta-knapp */}
+      <button
+        onClick={handlePlace}
+        disabled={selectedPosition === null}
+        className="w-full px-6 py-4 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white text-xl rounded-xl font-bold transition-all"
+      >
+        {selectedPosition !== null ? 'Bekräfta placering' : 'Välj en plats först'}
+      </button>
+    </div>
+  );
+}
+```
+
+### 7.11 Player Game - `client/src/components/Player/PlayerGame.tsx`
+
+```typescript
+import { useState, useEffect } from 'react';
+import { useParams, useLocation } from 'react-router-dom';
+import { useSocket } from '../../hooks/useSocket';
+import { Player, Song, RoundResult } from '../../types/game.types';
+import { Timeline } from './Timeline';
+
+export function PlayerGame() {
+  const { gameId } = useParams<{ gameId: string }>();
+  const location = useLocation();
+  const socket = useSocket();
+  const [player, setPlayer] = useState<Player>(location.state?.player);
+  const [phase, setPhase] = useState<'waiting' | 'playing' | 'reveal'>('waiting');
+  const [currentSong, setCurrentSong] = useState<Song | null>(null);
+  const [lastResult, setLastResult] = useState<RoundResult | null>(null);
+  const [winner, setWinner] = useState<any>(null);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on('game-started', () => {
+      setPhase('playing');
+    });
+
+    socket.on('next-round', () => {
+      setPhase('playing');
+      setLastResult(null);
+    });
+
+    socket.on('round-results', (data: any) => {
+      setPhase('reveal');
+      const myResult = data.results.find((r: RoundResult) => r.playerId === player.id);
+      setLastResult(myResult);
+      
+      // Uppdatera spelardata
+      if (myResult?.correct) {
+        setPlayer(prev => ({
+          ...prev,
+          score: prev.score + 1,
+          timeline: [...prev.timeline]
+        }));
+      }
+    });
+
+    socket.on('game-finished', (data: any) => {
+      setWinner(data.winner);
+    });
+
+    socket.on('game-ended', () => {
+      alert('Spelet avslutades');
+    });
+
+    return () => {
+      socket.off('game-started');
+      socket.off('next-round');
+      socket.off('round-results');
+      socket.off('game-finished');
+      socket.off('game-ended');
+    };
+  }, [socket, player.id]);
+
+  const handlePlaceSong = (position: number) => {
+    socket?.emit('place-song', { gameId, position });
+    setPhase('waiting');
+  };
+
+  if (winner) {
+    const isWinner = winner.id === player.id;
+    return (
+      <div className={`min-h-screen flex items-center justify-center p-8 ${
+        isWinner 
+          ? 'bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500'
+          : 'bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900'
+      }`}>
+        <div className="text-center">
+          {isWinner ? (
+            <>
+              <h1 className="text-6xl font-bold text-white mb-4">🏆 DU VANN! 🏆</h1>
+              <p className="text-2xl text-white">med {winner.score} poäng!</p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-4xl font-bold text-white mb-4">Spelet slutade</h1>
+              <p className="text-xl text-white">{winner.name} vann med {winner.score} poäng</p>
+              <p className="text-lg text-white mt-2">Du fick {player.score} poäng</p>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === 'reveal' && lastResult) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center p-8 ${
+        lastResult.correct
+          ? 'bg-gradient-to-br from-green-400 via-green-500 to-green-600'
+          : 'bg-gradient-to-br from-red-400 via-red-500 to-red-600'
+      }`}>
+        <div className="text-center">
+          <h1 className="text-6xl font-bold text-white mb-4">
+            {lastResult.correct ? '✓ RÄTT!' : '✗ FEL'}
+          </h1>
+          <p className="text-2xl text-white">
+            Rätt år: {lastResult.correctYear}
+          </p>
+          <p className="text-xl text-white mt-4">
+            Din poäng: {player.score} / 10
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-8">
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-white bg-opacity-10 backdrop-blur-sm rounded-2xl p-6 mb-6">
+          <h2 className="text-2xl font-bold text-white">{player.name}</h2>
+          <p className="text-purple-200">Startår: {player.startYear}</p>
+        </div>
+
+        <Timeline
+          player={player}
+          currentSong={currentSong}
+          onPlaceSong={handlePlaceSong}
+          isWaiting={phase === 'waiting'}
+        />
+      </div>
+    </div>
+  );
+}
+```
+
+### 7.12 Main App Router - `client/src/App.tsx`
+
+```typescript
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { MasterLobby } from './components/Master/MasterLobby';
+import { PlayerJoin } from './components/Player/PlayerJoin';
+import { PlayerGame } from './components/Player/PlayerGame';
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<MasterLobby />} />
+        <Route path="/join/:gameId" element={<PlayerJoin />} />
+        <Route path="/player/:gameId" element={<PlayerGame />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+export default App;
+```
+
+---
+
+## STEG 8: Environment Variables
+
+### `server/.env`
+```env
+PORT=3001
+CLIENT_URL=http://localhost:5173
+APP_URL=http://localhost:5173
+
+# OpenRouter
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+
+# ElevenLabs
+ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
+ELEVENLABS_VOICE_ID=pNInz6obpgDQGcFmaJgB
+
+# Spotify
+SPOTIFY_CLIENT_ID=your_spotify_client_id_here
+SPOTIFY_CLIENT_SECRET=your_spotify_client_secret_here
+```
+
+### `client/.env`
+```env
+VITE_API_URL=http://localhost:3001
+```
+
+---
+
+## STEG 9: Körning och Test
+
+### Installation och Start
+
+**Server:**
+```bash
+cd server
+npm install
+npm run dev
+```
+
+**Client:**
+```bash
+cd client
+npm install
+npm run dev
+```
+
+### Test Checklist
+- [ ] Master kan skapa spel och chatta med AI
+- [ ] QR-kod genereras korrekt
+- [ ] Spelare kan ansluta via QR-kod/länk
+- [ ] Spotify-integration fungerar
+- [ ] Röstkommentarer spelas upp
+- [ ] Tidslinje-placering fungerar
+- [ ] Poäng räknas korrekt
+- [ ] Vinnare utses rätt
+- [ ] Reconnection fungerar vid disconnect
+
+---
+
+## Viktiga Funktioner
+
+### Felhantering
+- Robusta try-catch block i alla async-funktioner
+- Error states i UI-komponenter
+- WebSocket reconnection logic
+
+### Loading States
+- Visuell feedback under AI-anrop
+- Loading indicators för Spotify
+- Progress bars för runda-status
+
+### Optimeringar
+- Audio caching för vanliga fraser
+- Spotify token refresh
+- Rate limiting för API-anrop
+- Lazy loading av komponenter
+
+### Accessibility
+- ARIA-labels för screen readers
+- Keyboard navigation
+- High contrast mode support
+- Font size scaling
+
+---
+
+## Deployment
+
+### Frontend (Vercel/Netlify)
+```bash
+cd client
+npm run build
+# Deploy dist/ folder
+```
+
+### Backend (Railway/Render/Heroku)
+```bash
+cd server
+npm run build
+# Deploy with start script
+```
+
+### Environment Variables
+Sätt alla environment variables i deployment platform.
+
+---
+
+## API-nycklar att skaffa
+
+1. **OpenRouter**: https://openrouter.ai/
+   - Skapa konto
+   - Generera API-nyckel
+   - Välj modell (Claude 3.5 Sonnet rekommenderas)
+
+2. **ElevenLabs**: https://elevenlabs.io/
+   - Skapa konto
+   - Generera API-nyckel
+   - Välj röst (testa svenska röster)
+
+3. **Spotify**: https://developer.spotify.com/
+   - Skapa app
+   - Få Client ID och Client Secret
+   - Sätt redirect URI
+
+---
+
+## Framtida Förbättringar
+
+- [ ] Spara spelhistorik i databas
+- [ ] Leaderboards
+- [ ] Fler spellägen (teams, snabbversion)
+- [ ] Anpassningsbara regler
+- [ ] Musik från flera källor (YouTube, Apple Music)
+- [ ] Video streaming istället för bara audio
+- [ ] Multiplayer chat
+- [ ] Achievements och badges
+- [ ] Spectator mode
+- [ ] Replay av spel
+
+---
+
+Lycka till med utvecklingen! 🎵🎮

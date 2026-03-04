@@ -1,0 +1,235 @@
+Response sample
+{
+  "tracks": {
+    "href": "https://api.spotify.com/v1/search?offset=0&limit=20&query=remaster%2520track%3ADoxy%2520artist%3AMiles%2520Davis&type=track&market=SE&locale=sv-SE,sv;q%3D0.9,en-US;q%3D0.8,en;q%3D0.7",
+    "limit": 20,
+    "next": "https://api.spotify.com/v1/search?offset=20&limit=20&query=remaster%2520track%3ADoxy%2520artist%3AMiles%2520Davis&type=track&market=SE&locale=sv-SE,sv;q%3D0.9,en-US;q%3D0.8,en;q%3D0.7",
+    "offset": 0,
+    "previous": null,
+    "total": 40,
+    "items": [
+      {
+        "album": {
+          "album_type": "album",
+          "total_tracks": 7,
+          "external_urls": {
+            "spotify": "https://open.spotify.com/album/3rs2Wq1755vGmXxIioU7Xo"
+          },
+          "href": "https://api.spotify.com/v1/albums/3rs2Wq1755vGmXxIioU7Xo",
+          "id": "3rs2Wq1755vGmXxIioU7Xo",
+          "images": [
+            {
+              "url": "https://i.scdn.co/image/ab67616d0000b27342a04303e6eb1100df3ea036",
+              "height": 640,
+              "width": 640
+            },
+            {
+              "url": "https://i.scdn.co/image/ab67616d00001e0242a04303e6eb1100df3ea036",
+              "height": 300,
+              "width": 300
+            },
+            {
+              "url": "https://i.scdn.co/image/ab67616d0000485142a04303e6eb1100df3ea036",
+              "height": 64,
+              "width": 64
+            }
+          ],
+          "name": "Bags' Groove (Rudy Van Gelder Remaster)",
+          "release_date": "1957-01-01",
+          "release_date_precision": "day",
+          "type": "album",
+          "uri": "spotify:album:3rs2Wq1755vGmXxIioU7Xo",
+          "artists": [
+            {
+              "external_urls": {
+                "spotify": "https://open.spotify.com/artist/0kbYTNQb4Pb1rPbbaF0pT4"
+              },
+              "href": "https://api.spotify.com/v1/artists/0kbYTNQb4Pb1rPbbaF0pT4",
+              "id": "0kbYTNQb4Pb1rPbbaF0pT4",
+              "name": "Miles Davis",
+              "type": "artist",
+              "uri": "spotify:artist:0kbYTNQb4Pb1rPbbaF0pT4"
+            }
+          ],
+          "is_playable": true
+        },
+        "artists": [
+          {
+            "external_urls": {
+              "spotify": "https://open.spotify.com/artist/0kbYTNQb4Pb1rPbbaF0pT4"
+            },
+            "href": "https://api.spotify.com/v1/artists/0kbYTNQb4Pb1rPbbaF0pT4",
+            "id": "0kbYTNQb4Pb1rPbbaF0pT4",
+            "name": "Miles Davis",
+            "type": "artist",
+            "uri": "spotify:artist:0kbYTNQb4Pb1rPbbaF0pT4"
+          },
+          {
+            "external_urls": {
+              "spotify": "https://open.spotify.com/artist/1VEzN9lxvG6KPR3QQGsebR"
+            },
+            "href": "https://api.spotify.com/v1/artists/1VEzN9lxvG6KPR3QQGsebR",
+            "id": "1VEzN9lxvG6KPR3QQGsebR",
+            "name": "Sonny Rollins",
+            "type": "artist",
+            "uri": "spotify:artist:1VEzN9lxvG6KPR3QQGsebR"
+          },
+          {
+            "external_urls": {
+              "spotify": "https://open.spotify.com/artist/5ZATfKurLqflrBhv2FLht5"
+            },
+            "href": "https://api.spotify.com/v1/artists/5ZATfKurLqflrBhv2FLht5",
+            "id": "5ZATfKurLqflrBhv2FLht5",
+            "name": "Horace Silver",
+            "type": "artist",
+            "uri": "spotify:artist:5ZATfKurLqflrBhv2FLht5"
+          },
+          {
+            "external_urls": {
+              "spotify": "https://open.spotify.com/artist/7xwlN7fhoOwNgDmRTwYZOa"
+            },
+            "href": "https://api.spotify.com/v1/artists/7xwlN7fhoOwNgDmRTwYZOa",
+            "id": "7xwlN7fhoOwNgDmRTwYZOa",
+            "name": "Kenny Clarke",
+            "type": "artist",
+            "uri": "spotify:artist:7xwlN7fhoOwNgDmRTwYZOa"
+          },
+          {
+            "external_urls": {
+              "spotify": "https://open.spotify.com/artist/0vKbTTNdtagd8xiERj6Szb"
+            },
+            "href": "https://api.spotify.com/v1/artists/0vKbTTNdtagd8xiERj6Szb",
+            "id": "0vKbTTNdtagd8xiERj6Szb",
+            "name": "Percy Heath",
+            "type": "artist",
+            "uri": "spotify:artist:0vKbTTNdtagd8xiERj6Szb"
+          }
+        ],
+        "disc_number": 1,
+        "duration_ms": 293640,
+        "explicit": false,
+        "external_ids": {
+          "isrc": "USC4R0720006"
+        },
+        "external_urls": {
+          "spotify": "https://open.spotify.com/track/3vZIYc2V9Ql80jWI2ZApEC"
+        },
+        "href": "https://api.spotify.com/v1/tracks/3vZIYc2V9Ql80jWI2ZApEC",
+        "id": "3vZIYc2V9Ql80jWI2ZApEC",
+        "is_playable": true,
+        "name": "Doxy - Remastered 2009",
+        "popularity": 40,
+        "preview_url": null,
+        "track_number": 6,
+        "type": "track",
+        "uri": "spotify:track:3vZIYc2V9Ql80jWI2ZApEC",
+        "is_local": false
+      },
+      {
+        "album": {
+          "album_type": "compilation",
+          "total_tracks": 10,
+          "external_urls": {
+            "spotify": "https://open.spotify.com/album/1XxI8fZQiDtmJfhXBRS3l1"
+          },
+          "href": "https://api.spotify.com/v1/albums/1XxI8fZQiDtmJfhXBRS3l1",
+          "id": "1XxI8fZQiDtmJfhXBRS3l1",
+          "images": [
+            {
+              "url": "https://i.scdn.co/image/ab67616d0000b2736aa1a0eae5f023675b4e9818",
+              "height": 640,
+              "width": 640
+            },
+            {
+              "url": "https://i.scdn.co/image/ab67616d00001e026aa1a0eae5f023675b4e9818",
+              "height": 300,
+              "width": 300
+            },
+            {
+              "url": "https://i.scdn.co/image/ab67616d000048516aa1a0eae5f023675b4e9818",
+              "height": 64,
+              "width": 64
+            }
+          ],
+          "name": "The Best Of Miles Davis",
+          "release_date": "2004-01-01",
+          "release_date_precision": "day",
+          "type": "album",
+          "uri": "spotify:album:1XxI8fZQiDtmJfhXBRS3l1",
+          "artists": [
+            {
+              "external_urls": {
+                "spotify": "https://open.spotify.com/artist/0kbYTNQb4Pb1rPbbaF0pT4"
+              },
+              "href": "https://api.spotify.com/v1/artists/0kbYTNQb4Pb1rPbbaF0pT4",
+              "id": "0kbYTNQb4Pb1rPbbaF0pT4",
+              "name": "Miles Davis",
+              "type": "artist",
+              "uri": "spotify:artist:0kbYTNQb4Pb1rPbbaF0pT4"
+            }
+          ],
+          "is_playable": true
+        },
+        "artists": [
+          {
+            "external_urls": {
+              "spotify": "https://open.spotify.com/artist/0kbYTNQb4Pb1rPbbaF0pT4"
+            },
+            "href": "https://api.spotify.com/v1/artists/0kbYTNQb4Pb1rPbbaF0pT4",
+            "id": "0kbYTNQb4Pb1rPbbaF0pT4",
+            "name": "Miles Davis",
+            "type": "artist",
+            "uri": "spotify:artist:0kbYTNQb4Pb1rPbbaF0pT4"
+          }
+        ],
+        "disc_number": 1,
+        "duration_ms": 292933,
+        "explicit": false,
+        "external_ids": {
+          "isrc": "USFI85400028"
+        },
+        "external_urls": {
+          "spotify": "https://open.spotify.com/track/6uLMxmK9MHb6fiecxn2yrp"
+        },
+        "href": "https://api.spotify.com/v1/tracks/6uLMxmK9MHb6fiecxn2yrp",
+        "id": "6uLMxmK9MHb6fiecxn2yrp",
+        "is_playable": true,
+        "name": "Doxy",
+        "popularity": 23,
+        "preview_url": null,
+        "track_number": 4,
+        "type": "track",
+        "uri": "spotify:track:6uLMxmK9MHb6fiecxn2yrp",
+        "is_local": false
+      },
+      {
+        "album": {
+          "album_type": "compilation",
+          "total_tracks": 17,
+          "external_urls": {
+            "spotify": "https://open.spotify.com/album/5i0RQAn1VOr88MbLSYVunw"
+          },
+          "href": "https://api.spotify.com/v1/albums/5i0RQAn1VOr88MbLSYVunw",
+          "id": "5i0RQAn1VOr88MbLSYVunw",
+          "images": [
+            {
+              "url": "https://i.scdn.co/image/ab67616d0000b2735b94f6a959c0b749c51099de",
+              "height": 640,
+              "width": 640
+            },
+            {
+              "url": "https://i.scdn.co/image/ab67616d00001e025b94f6a959c0b749c51099de",
+              "height": 300,
+              "width": 300
+            },
+            {
+              "url": "https://i.scdn.co/image/ab67616d000048515b94f6a959c0b749c51099de",
+              "height": 64,
+              "width": 64
+            }
+          ],
+          "name": "Godchild",
+          "release_date": "2007-01-01",
+          "release_date_precision": "day",
+          "type": "album",
+          "uri": "spotify:albu
