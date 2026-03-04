@@ -5,6 +5,8 @@ import path from "path";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+// Required on Render/other reverse proxies so secure cookies work correctly over HTTPS.
+app.set("trust proxy", 1);
 
 function loadEnvFile() {
   const envPath = path.resolve(process.cwd(), ".env");
@@ -75,6 +77,7 @@ if (!process.env.SESSION_SECRET) {
 
 app.use(session({
   secret: process.env.SESSION_SECRET,
+  proxy: app.get("env") === "production",
   resave: false,
   saveUninitialized: false,
   cookie: {
