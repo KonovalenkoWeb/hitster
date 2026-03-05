@@ -25,7 +25,7 @@ interface SeedQuery {
 }
 
 const KNOWN_HIT_POPULARITY_THRESHOLD = Number.parseInt(process.env.KNOWN_HIT_POPULARITY || "70", 10);
-const MIN_SEED_POPULARITY = Number.parseInt(process.env.MIN_SEED_POPULARITY || "35", 10);
+const MIN_SEED_POPULARITY = Number.parseInt(process.env.MIN_SEED_POPULARITY || "0", 10);
 
 function isBlockedTrackOrArtist(trackName: string, artistNames: string): boolean {
   const value = `${trackName} ${artistNames}`.toLowerCase();
@@ -94,6 +94,12 @@ function isCompilationAlbum(track: any): boolean {
     /\bremastered\b/,
     /\bdeluxe\b/,
     /\banniversary\b/,
+    /\bsoundtrack\b/,
+    /\boriginal motion picture\b/,
+    /\bmotion picture\b/,
+    /\boriginal score\b/,
+    /\bfilm score\b/,
+    /\bost\b/,
     /\bsound effects?\b/,
     /\bsleep\b/,
     /\bmeditation\b/,
@@ -110,9 +116,8 @@ const TARGET_TOTAL = Number.parseInt(
   10
 );
 const TARGET_CATALOG =
-  process.argv.find((arg) => arg.startsWith("--catalog="))?.split("=")[1] ||
   process.env.SEED_CATALOG ||
-  "query_default";
+  "main_catalog";
 
 function loadEnvFile() {
   const envPath = path.resolve(process.cwd(), ".env");

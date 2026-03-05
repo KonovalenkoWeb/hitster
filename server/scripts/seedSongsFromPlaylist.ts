@@ -18,11 +18,8 @@ type YearConfidence = "high" | "medium" | "low";
 
 const DEFAULT_PLAYLIST_URL = "https://open.spotify.com/playlist/1G8IpkZKobrIlXcVPoSIuf";
 const KNOWN_HIT_POPULARITY_THRESHOLD = Number.parseInt(process.env.KNOWN_HIT_POPULARITY || "70", 10);
-const MIN_SEED_POPULARITY = Number.parseInt(process.env.MIN_SEED_POPULARITY || "35", 10);
-const TARGET_CATALOG =
-  process.argv.find((arg) => arg.startsWith("--catalog="))?.split("=")[1] ||
-  process.env.SEED_CATALOG ||
-  "playlist_main";
+const MIN_SEED_POPULARITY = Number.parseInt(process.env.MIN_SEED_POPULARITY || "0", 10);
+const TARGET_CATALOG = process.env.SEED_CATALOG || "main_catalog";
 
 function loadEnvFile() {
   const envPath = path.resolve(process.cwd(), ".env");
@@ -138,6 +135,12 @@ function isCompilationLikeAlbum(albumType: string, albumName: string): boolean {
     /\bremastered\b/,
     /\bdeluxe\b/,
     /\banniversary\b/,
+    /\bsoundtrack\b/,
+    /\boriginal motion picture\b/,
+    /\bmotion picture\b/,
+    /\boriginal score\b/,
+    /\bfilm score\b/,
+    /\bost\b/,
     /\bsound effects?\b/,
     /\bsleep\b/,
     /\bmeditation\b/,
@@ -415,6 +418,11 @@ async function seedFromPlaylist() {
       continue;
     }
     const { track, year, yearConfidence, yearSource, isrc } = resolved;
+    if (yearConfidence === "low") {
+      skipped++;
+      continue;
+    }
+
     const artist = track.artists.map((a) => a.name).join(", ");
     const popularity = Number.isFinite(track.popularity) ? track.popularity : 0;
 
@@ -422,6 +430,7 @@ async function seedFromPlaylist() {
       skipped++;
       continue;
     }
+
     if (isBlockedTrackOrArtist(track.name, artist)) {
       skipped++;
       continue;
@@ -430,8 +439,8 @@ async function seedFromPlaylist() {
       skipped++;
       continue;
     }
-    if (isrc && existingIsrc.has(isrc.toUpperCase())) continue;
 
+    if (isrc && existingIsrc.has(isrc.toUpperCase())) continue;
     const songKey = keyFor(track.name, artist, year);
     if (existingKeys.has(songKey)) continue;
     const titleArtistKey = `${normalizeTitle(track.name)}|${normalizedArtistKey(artist)}`;

@@ -18,9 +18,10 @@ export default function Timeline({ timeline, startYear, onPlaceCard, highlightPo
   return (
     <div className="px-0 sm:p-6">
 
-      <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory px-2 sm:px-0">
+      <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scroll-px-4 px-0 sm:px-0">
+        <div className="w-4 shrink-0 sm:w-0" aria-hidden />
         {timeline.length === 0 ? (
-          <div className="min-w-[116vw] -mx-[8vw] sm:min-w-full sm:mx-0 flex items-center justify-center gap-4">
+          <div className="min-w-max flex items-center justify-start gap-4">
             <Card
               className={`${slotCardClasses} flex flex-col items-center justify-center snap-start bg-black border-4 border-white shadow-xl ${
                 confirmedPosition === 0 ? 'border-green-500' : highlightPosition === 0 ? 'ring-4 ring-red-500 cursor-pointer' : 'cursor-pointer'
@@ -151,6 +152,7 @@ export default function Timeline({ timeline, startYear, onPlaceCard, highlightPo
             })}
           </>
         )}
+        <div className="w-4 shrink-0 sm:w-0" aria-hidden />
       </div>
     </div>
   );

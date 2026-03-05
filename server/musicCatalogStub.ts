@@ -21,7 +21,8 @@ interface CatalogEntry extends Song {
   isKnownHit?: boolean;
 }
 
-const MIN_DEFAULT_POPULARITY = Number.parseInt(process.env.MIN_DEFAULT_POPULARITY || "0", 10);
+const MIN_DEFAULT_POPULARITY = 0;
+const SONG_COOLDOWN_ROUNDS = Number.parseInt(process.env.SONG_COOLDOWN_ROUNDS || "4", 10);
 
 const CATALOG: CatalogEntry[] = [
   { id: "stub-001", title: "Bohemian Rhapsody", artist: "Queen", year: 1975, tags: ["rock"], language: "en", energy: "upbeat" },
@@ -130,6 +131,30 @@ function normalizedArtistKey(artist: string): string {
 }
 
 export class MusicCatalogStubService {
+  private recentSongKeys: string[] = [];
+
+  private songKey(song: Pick<Song, "title" | "artist" | "year">): string {
+    return `${song.title.toLowerCase().trim()}|${song.artist.toLowerCase().trim()}|${song.year}`;
+  }
+
+  private withCooldownPreference(candidates: Song[], targetCount: number): Song[] {
+    if (candidates.length === 0) return [];
+    const recent = new Set(this.recentSongKeys);
+    const preferred = candidates.filter((song) => !recent.has(this.songKey(song)));
+    const fallback = candidates.filter((song) => recent.has(this.songKey(song)));
+    return [...preferred, ...fallback].slice(0, targetCount);
+  }
+
+  private rememberPlayedSongs(songs: Song[]) {
+    if (SONG_COOLDOWN_ROUNDS <= 0) return;
+    for (const song of songs) {
+      this.recentSongKeys.push(this.songKey(song));
+    }
+    if (this.recentSongKeys.length > SONG_COOLDOWN_ROUNDS) {
+      this.recentSongKeys = this.recentSongKeys.slice(this.recentSongKeys.length - SONG_COOLDOWN_ROUNDS);
+    }
+  }
+
   private shouldUseStubFallback(): boolean {
     return process.env.NODE_ENV !== "production";
   }
@@ -173,6 +198,12 @@ export class MusicCatalogStubService {
       /\bremastered\b/,
       /\bdeluxe\b/,
       /\banniversary\b/,
+      /\bsoundtrack\b/,
+      /\boriginal motion picture\b/,
+      /\bmotion picture\b/,
+      /\boriginal score\b/,
+      /\bfilm score\b/,
+      /\bost\b/,
       /\bmeditation\b/,
       /\bsleep\b/,
       /\bambient\b/,
@@ -363,8 +394,12 @@ export class MusicCatalogStubService {
       if (picked.size >= targetCount) break;
     }
 
+    const shuffled = shuffle(Array.from(picked.values()));
+    const cooled = this.withCooldownPreference(shuffled, targetCount);
+    this.rememberPlayedSongs(cooled);
+
     return {
-      songs: shuffle(Array.from(picked.values())).slice(0, targetCount),
+      songs: cooled,
       startYearRange: range
     };
   }
