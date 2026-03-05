@@ -112,7 +112,6 @@ export default function WinnerScreen({ winner, allPlayers, onNewGame }: WinnerSc
                 <Trophy className="w-12 h-12 sm:w-20 sm:h-20 text-white" />
               </div>
             )}
-            <h1 className="text-4xl sm:text-7xl font-black mb-3 sm:mb-4 text-white text-center" style={{ fontFamily: 'Impact, "Arial Black", sans-serif' }}>CONGRATS!</h1>
             <div className="inline-flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
               <Sparkles className="w-5 h-5 sm:w-8 sm:h-8 text-red-500" />
               <h2 className="text-3xl sm:text-5xl font-black text-white text-center break-words" data-testid="text-winner-name">{winner.name}</h2>
@@ -167,7 +166,7 @@ export default function WinnerScreen({ winner, allPlayers, onNewGame }: WinnerSc
                           </span>
                         )}
                         <span className="text-sm text-white/70">
-                          Plats {idx + 1} · {player.score} poäng · {formatAvgSpeed(player.averageCorrectResponseMs)}
+                          Plats {idx + 1} · {formatAvgSpeed(player.averageCorrectResponseMs)}
                         </span>
                       </div>
                     </div>
